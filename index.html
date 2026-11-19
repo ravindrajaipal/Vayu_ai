@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VayuAI — Urban Air Quality &amp; Winter Smog Intelligence</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Plus Jakarta Sans', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    :root {
+      --bg: #F8FAFC;
+      --surface: #FFFFFF;
+      --surface-soft: #F1F5F9;
+      --border: #E2E8F0;
+      --text: #0F172A;
+      --muted: #64748B;
+      --header-bg: rgba(255, 255, 255, 0.86);
+      --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.02);
+    }
+    html.dark {
+      --bg: #090B10;
+      --surface: #11141D;
+      --surface-soft: #171B26;
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #F8FAFC;
+      --muted: #94A3B8;
+      --header-bg: rgba(9, 11, 16, 0.82);
+      --shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    .app-header {
+      background-color: var(--header-bg);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+    .card {
+      background-color: var(--surface);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-card);
+    }
+    .card-soft {
+      background-color: var(--surface-soft);
+      border: 1px solid var(--border);
+    }
+    .text-muted { color: var(--muted); }
+    .tabular { font-variant-numeric: tabular-nums; }
+    .nav-tab {
+      color: var(--muted);
+      transition: all 150ms ease;
+    }
+    .nav-tab:hover { color: var(--text); }
+    .nav-pill-active {
+      background-color: #0F172A;
+      color: #FFFFFF !important;
+    }
+    html.dark .nav-pill-active {
+      background-color: #10B981;
+      color: #022C22 !important;
+    }
+    details > summary { list-style: none; cursor: pointer; }
+    details > summary::-webkit-details-marker { display: none; }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: #fff !important; color: #000 !important; }
+      .card, .card-soft { background: #fff !important; border: 1px solid #cbd5e1 !important; box-shadow: none !important; color: #000 !important; }
+    }
+  </style>
+</head>
+<body class="min-h-screen selection:bg-emerald-500/20 selection:text-emerald-700 dark:selection:text-emerald-300">
+
+  <!-- Executive Sticky Navigation Bar -->
+  <header class="sticky top-0 z-40 app-header no-print">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+      <!-- Brand Wordmark -->
+      <div class="flex items-center gap-2.5 shrink-0">
+        <div class="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-sm">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span class="font-display font-bold text-base tracking-tight">VayuAI</span>
+          <span class="hidden sm:inline-block text-[11px] font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">Air Intelligence</span>
+        </div>
+      </div>
+
+      <!-- 4 Primary Workspace Tabs -->
+      <nav class="hidden md:flex items-center gap-1 p-1 rounded-full card-soft" aria-label="Main navigation">
+        <button type="button" data-tab="overview" class="nav-tab px-4 py-1.5 rounded-full text-xs font-semibold nav-pill-active">Overview</button>
+        <button type="button" data-tab="routines" class="nav-tab px-4 py-1.5 rounded-full text-xs font-semibold">Daily Shield</button>
+        <button type="button" data-tab="home" class="nav-tab px-4 py-1.5 rounded-full text-xs font-semibold">Home Air</button>
+        <button type="button" data-tab="impact" class="nav-tab px-4 py-1.5 rounded-full text-xs font-semibold">Impact &amp; Export</button>
+      </nav>
+
+      <!-- Minimal Action Controls (Crisp SVG Icons) -->
+      <div class="flex items-center gap-2">
+        <button id="voiceAdvisoryBtn" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium card hover:border-emerald-500/50 transition" title="Listen to Advisory">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          <span id="voiceBtnLabel" class="hidden sm:inline">Listen</span>
+        </button>
+
+        <button id="autoDemoBtn" type="button" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-white dark:bg-emerald-500 dark:text-slate-950 hover:opacity-90 transition">
+          <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span id="autoDemoLabel">Walkthrough</span>
+        </button>
+
+        <button id="settingsBtn" type="button" class="p-2 rounded-lg card hover:border-slate-400 dark:hover:border-slate-600 transition" title="Engine Settings" aria-label="Engine Settings">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+
+        <button id="themeToggleBtn" type="button" class="p-2 rounded-lg card hover:border-slate-400 dark:hover:border-slate-600 transition" title="Toggle Dark Mode" aria-label="Toggle Dark Mode">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Navigation -->
+    <div class="md:hidden border-t border-slate-200 dark:border-slate-800 px-4 py-2 flex items-center gap-1.5 overflow-x-auto">
+      <button type="button" data-tab="overview" class="nav-tab px-3 py-1 rounded-full text-xs font-semibold shrink-0 nav-pill-active">Overview</button>
+      <button type="button" data-tab="routines" class="nav-tab px-3 py-1 rounded-full text-xs font-semibold shrink-0">Daily Shield</button>
+      <button type="button" data-tab="home" class="nav-tab px-3 py-1 rounded-full text-xs font-semibold shrink-0">Home Air</button>
+      <button type="button" data-tab="impact" class="nav-tab px-3 py-1 rounded-full text-xs font-semibold shrink-0">Impact &amp; Export</button>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+
+    <!-- Clean Context Bar: Preset Location + Household Profile + Keyless Live Sync -->
+    <section class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <div class="flex flex-wrap items-center gap-2.5">
+        <label for="citySelector" class="sr-only">Preset City</label>
+        <select id="citySelector" class="card rounded-xl px-3.5 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/30 cursor-pointer">
+          <option value="delhi">Delhi NCR — AQI 367</option>
+          <option value="jodhpur">Jodhpur, RJ — AQI 265</option>
+          <option value="jaipur">Jaipur, RJ — AQI 237</option>
+          <option value="mumbai">Mumbai, MH — AQI 146</option>
+        </select>
+
+        <label for="profileSelector" class="sr-only">Household Profile</label>
+        <select id="profileSelector" class="card rounded-xl px-3.5 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/30 cursor-pointer">
+          <option value="family">Family (Children &amp; Elders)</option>
+          <option value="hostel">University Hostel</option>
+          <option value="sensitive">Respiratory Sensitive</option>
+          <option value="commuter">Daily Commuter</option>
+        </select>
+      </div>
+
+      <!-- Free Zero-API-Key Live Sync (Open-Meteo CAMS) -->
+      <form id="liveCitySearchForm" class="flex items-center gap-2" aria-label="Sync live air quality for any city">
+        <label for="liveCityInput" class="sr-only">Search any city</label>
+        <div class="relative">
+          <svg class="w-3.5 h-3.5 text-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="liveCityInput" type="text" maxlength="50" placeholder="Search any city (e.g. Kota)..." class="card rounded-xl pl-8 pr-3 py-2 text-xs sm:text-sm w-52 sm:w-60 focus:outline-none focus:ring-2 focus:ring-emerald-500/30" />
+        </div>
+        <button id="liveCityFetchBtn" type="submit" class="px-3.5 py-2 rounded-xl card hover:border-emerald-500/50 text-xs sm:text-sm font-semibold text-emerald-700 dark:text-emerald-400 transition shrink-0">
+          Sync Live
+        </button>
+      </form>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- TAB 1: OVERVIEW                                                   -->
+    <!-- ================================================================= -->
+    <section id="view-overview" class="tab-view space-y-6">
+
+      <!-- Executive Hero Card with Radial SVG AQI Gauge -->
+      <div class="card rounded-3xl p-6 sm:p-8">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+          <!-- Left: Radial Gauge + Location -->
+          <div class="lg:col-span-5 flex flex-col sm:flex-row items-center gap-6">
+            <div class="relative w-32 h-32 shrink-0 flex items-center justify-center">
+              <svg class="w-full h-full -rotate-90" viewBox="0 0 120 120" aria-hidden="true">
+                <circle cx="60" cy="60" r="50" fill="none" stroke="currentColor" stroke-width="8" class="text-slate-200 dark:text-slate-800"/>
+                <circle id="aqiGaugeArc" cx="60" cy="60" r="50" fill="none" stroke="#ef4444" stroke-width="8" stroke-linecap="round" stroke-dasharray="314.16" stroke-dashoffset="83" class="transition-all duration-500"/>
+              </svg>
+              <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                <span class="text-[10px] font-mono uppercase tracking-wider text-muted">CPCB AQI</span>
+                <span id="liveAqiValue" class="font-display font-extrabold text-3xl tabular tracking-tight text-red-600 dark:text-red-400">367</span>
+              </div>
+            </div>
+
+            <div class="space-y-2.5 text-center sm:text-left w-full">
+              <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                <span id="grapStageBadge" class="text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-400">GRAP Stage II</span>
+                <span id="liveDataSourceBadge" class="text-[11px] font-mono text-muted">CPCB Nov 2026</span>
+              </div>
+              <div>
+                <h1 id="cityTitleDisplay" class="font-display font-bold text-2xl tracking-tight">Delhi NCR</h1>
+                <p class="text-sm text-muted"><span id="liveAqiCategory" class="font-semibold text-slate-900 dark:text-slate-100">Very Poor</span> · PM2.5 <span id="livePm25Text" class="font-mono">218.0 µg/m³</span></p>
+              </div>
+              <div class="pt-1 space-y-1 max-w-[230px] mx-auto sm:mx-0">
+                <div class="flex justify-between text-[11px] text-muted">
+                  <label for="customAqiSlider">Simulate AQI</label>
+                  <span id="whoMultiplierText" class="font-mono font-medium text-amber-600 dark:text-amber-400">14.5× WHO</span>
+                </div>
+                <input id="customAqiSlider" type="range" min="35" max="500" value="367" class="w-full accent-emerald-600 cursor-pointer" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: 4 Crisp KPI Cards -->
+          <div class="lg:col-span-7 grid grid-cols-2 gap-4">
+            <div class="card-soft rounded-2xl p-4 sm:p-5">
+              <span class="text-xs font-medium text-muted">Filtered Indoor Air</span>
+              <div id="kpiIndoorPm25" class="font-display font-bold text-2xl sm:text-3xl text-emerald-700 dark:text-emerald-400 tabular mt-1">26.2 µg/m³</div>
+              <span id="kpiIndoorDropPct" class="text-xs text-muted mt-1 block">-88% vs outdoor</span>
+            </div>
+
+            <div class="card-soft rounded-2xl p-4 sm:p-5">
+              <span class="text-xs font-medium text-muted">Cigarette Equivalent</span>
+              <div class="font-display font-bold text-2xl sm:text-3xl tabular mt-1">
+                <span id="outdoorCigEq" class="text-rose-600 dark:text-rose-400">9.9</span>
+                <span class="text-muted text-lg mx-1">→</span>
+                <span id="indoorCigEq" class="text-emerald-700 dark:text-emerald-400">1.2</span>
+              </div>
+              <span class="text-xs text-muted mt-1 block">cigs/day · <a href="https://airquality.am/en/air-pollution/cigarette-equivalent" target="_blank" rel="noopener noreferrer" class="underline hover:text-emerald-600">Berkeley Earth</a></span>
+            </div>
+
+            <div class="card-soft rounded-2xl p-4 sm:p-5">
+              <span class="text-xs font-medium text-muted">Inhaled Dose Cut</span>
+              <div id="kpiDoseReduction" class="font-display font-bold text-2xl sm:text-3xl text-sky-700 dark:text-sky-400 tabular mt-1">78.4%</div>
+              <span id="kpiActiveRoutinesCount" class="text-xs text-muted mt-1 block">5/6 habits + N95</span>
+            </div>
+
+            <div class="card-soft rounded-2xl p-4 sm:p-5">
+              <span class="text-xs font-medium text-muted">Commute CO₂ Saved</span>
+              <div id="kpiCo2Saved" class="font-display font-bold text-2xl sm:text-3xl text-teal-700 dark:text-teal-400 tabular mt-1">42.6 kg/mo</div>
+              <span id="kpiTransitModeLabel" class="text-xs text-muted mt-1 block">-71% via Electric Bus</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Two-Column Core Workspace: AI Assistant + 24h Smog Forecast -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left 7 Cols: Air Quality Assistant -->
+        <div class="lg:col-span-7 card rounded-3xl p-6 flex flex-col justify-between space-y-5">
+          <div class="space-y-4">
+            <div class="flex items-center justify-between">
+              <h2 class="font-display font-bold text-lg tracking-tight">Air Quality Assistant</h2>
+              <button id="langToggleBtn" type="button" class="text-xs font-mono px-2.5 py-1 rounded-full card-soft text-muted hover:text-emerald-600 dark:hover:text-emerald-400 transition">
+                <span id="langBadge">EN + Hinglish</span>
+              </button>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+              <button type="button" data-prompt="morning_smog" class="ai-chip text-xs font-medium px-3 py-1.5 rounded-full card-soft hover:border-emerald-500/50 transition">Morning smog plan</button>
+              <button type="button" data-prompt="diy_purifier" class="ai-chip text-xs font-medium px-3 py-1.5 rounded-full card-soft hover:border-emerald-500/50 transition">₹2,900 DIY purifier</button>
+              <button type="button" data-prompt="kitchen_iaq" class="ai-chip text-xs font-medium px-3 py-1.5 rounded-full card-soft hover:border-emerald-500/50 transition">Kitchen &amp; indoor hacks</button>
+            </div>
+
+            <div id="aiChatStream" role="log" aria-live="polite" class="space-y-3 max-h-72 overflow-y-auto pr-1"></div>
+          </div>
+
+          <div class="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-2.5">
+            <form id="aiPromptForm" class="flex gap-2" aria-label="Ask VayuAI">
+              <label for="aiPromptInput" class="sr-only">Ask about smog routines, masks, or indoor air</label>
+              <input id="aiPromptInput" type="text" maxlength="280" required placeholder="Ask about safe ventilation, masks, or DIY filters..." class="flex-1 card-soft rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30" />
+              <button id="aiSubmitBtn" type="submit" class="px-4 py-2.5 rounded-xl bg-slate-900 text-white dark:bg-emerald-500 dark:text-slate-950 font-semibold text-sm hover:opacity-90 transition shrink-0">
+                Ask
+              </button>
+            </form>
+            <div class="flex items-center justify-between text-xs text-muted">
+              <span id="apiStatusLabel" class="font-mono text-[11px]">Zero-Key CPCB/WHO Engine</span>
+              <button id="applyAiPlanBtn" type="button" class="text-emerald-700 dark:text-emerald-400 hover:underline font-semibold">Apply optimal plan →</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right 5 Cols: 24-Hour Smog Forecast -->
+        <div class="lg:col-span-5 card rounded-3xl p-6 flex flex-col justify-between space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="font-display font-bold text-lg tracking-tight">24-Hour Smog Window</h2>
+              <p class="text-xs text-muted">Safe ventilation: <strong class="text-emerald-700 dark:text-emerald-400">13:00 – 16:00</strong></p>
+            </div>
+            <a href="https://www.c40knowledgehub.org/s/article/WHO-Air-Quality-Guidelines?language=en_US" target="_blank" rel="noopener noreferrer" class="text-xs text-muted hover:text-emerald-600 underline">WHO 15 µg/m³</a>
+          </div>
+
+          <div class="relative h-56 w-full">
+            <canvas id="hourlySmogChart"></canvas>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 text-center">
+            <div class="card-soft rounded-2xl p-3">
+              <span class="text-[11px] text-muted block">Morning Peak (6–9 AM)</span>
+              <strong id="morningPeakReadout" class="font-mono text-sm text-rose-600 dark:text-rose-400">260 µg/m³</strong>
+            </div>
+            <div class="card-soft rounded-2xl p-3">
+              <span class="text-[11px] text-muted block">Afternoon Dip (1–4 PM)</span>
+              <strong id="afternoonDipReadout" class="font-mono text-sm text-emerald-700 dark:text-emerald-400">145 µg/m³</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Collapsible Official Standards Drawer -->
+      <details class="card rounded-2xl p-5">
+        <summary class="flex items-center justify-between text-sm font-semibold">
+          <span>CPCB NAQI Breakpoints &amp; CAQM GRAP Emergency Stages</span>
+          <span class="text-xs font-mono text-muted">Expand</span>
+        </summary>
+        <div class="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead>
+              <tr class="text-muted font-mono border-b border-slate-200 dark:border-slate-800">
+                <th class="py-2 pr-4">Category</th>
+                <th class="py-2 pr-4">AQI</th>
+                <th class="py-2 pr-4">PM2.5 (µg/m³)</th>
+                <th class="py-2 pr-4">GRAP Stage</th>
+                <th class="py-2">Protocol (<a href="https://www.pib.gov.in/newsite/printrelease.aspx?relid=110654" target="_blank" rel="noopener noreferrer" class="underline text-emerald-600">CPCB</a> / <a href="https://caqm.nic.in/" target="_blank" rel="noopener noreferrer" class="underline text-sky-600">CAQM</a>)</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+              <tr><td class="py-2 pr-4 text-emerald-600 font-semibold">Good</td><td class="py-2 pr-4 font-mono">0–50</td><td class="py-2 pr-4 font-mono">0–30</td><td class="py-2 pr-4 font-mono">Baseline</td><td class="py-2 text-muted">Minimal impact; normal outdoor activity.</td></tr>
+              <tr><td class="py-2 pr-4 text-lime-600 font-semibold">Satisfactory</td><td class="py-2 pr-4 font-mono">51–100</td><td class="py-2 pr-4 font-mono">31–60</td><td class="py-2 pr-4 font-mono">NAAQS Limit</td><td class="py-2 text-muted">Minor discomfort to sensitive individuals.</td></tr>
+              <tr><td class="py-2 pr-4 text-amber-600 font-semibold">Moderate</td><td class="py-2 pr-4 font-mono">101–200</td><td class="py-2 pr-4 font-mono">61–90</td><td class="py-2 pr-4 font-mono">Pre-GRAP</td><td class="py-2 text-muted">Limit strenuous outdoor exertion for asthma/kids.</td></tr>
+              <tr><td class="py-2 pr-4 text-orange-600 font-semibold">Poor</td><td class="py-2 pr-4 font-mono">201–300</td><td class="py-2 pr-4 font-mono">91–120</td><td class="py-2 pr-4 font-mono">Stage I</td><td class="py-2 text-muted">Wear sealed N95 outdoors; run indoor filtration.</td></tr>
+              <tr><td class="py-2 pr-4 text-red-600 font-semibold">Very Poor</td><td class="py-2 pr-4 font-mono">301–400</td><td class="py-2 pr-4 font-mono">121–250</td><td class="py-2 pr-4 font-mono">Stage II</td><td class="py-2 text-muted">Seal windows in morning; switch to public transit.</td></tr>
+              <tr><td class="py-2 pr-4 text-rose-600 font-semibold">Severe / Severe+</td><td class="py-2 pr-4 font-mono">401–500+</td><td class="py-2 pr-4 font-mono">250+</td><td class="py-2 pr-4 font-mono">Stage III / IV</td><td class="py-2 text-muted">Emergency airshed curbs; stay indoors with HEPA/MERV-13.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- TAB 2: DAILY SHIELD                                               -->
+    <!-- ================================================================= -->
+    <section id="view-routines" class="tab-view hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-7 card rounded-3xl p-6 space-y-5">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="font-display font-bold text-lg tracking-tight">Low-Emission Daily Routine</h2>
+              <p class="text-xs text-muted">Toggle protocols to quantify daily exposure &amp; emission reductions.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <label for="routineFilterInput" class="sr-only">Filter routines</label>
+              <input id="routineFilterInput" type="search" maxlength="60" placeholder="Filter..." class="card-soft rounded-xl px-3 py-1.5 text-xs w-32 focus:outline-none focus:ring-2 focus:ring-emerald-500/30" />
+              <button id="resetDefaultsBtn" type="button" class="px-2.5 py-1.5 rounded-xl card-soft text-xs font-medium hover:border-slate-400 transition">Reset</button>
+              <button id="enableAllRoutinesBtn" type="button" class="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500 transition">All On</button>
+            </div>
+          </div>
+          <div id="routineListContainer" class="space-y-3"></div>
+        </div>
+
+        <div class="lg:col-span-5 card rounded-3xl p-6 flex flex-col justify-between space-y-5">
+          <div class="space-y-4">
+            <div>
+              <h2 class="font-display font-bold text-lg tracking-tight">Mask Filtration &amp; Fit Lab</h2>
+              <p class="text-xs text-muted">Measured PM2.5 capture (<a href="https://www.researchgate.net/publication/352747073_Efficiency_of_Commercial_Face_Masks_in_PM25_Prevention" target="_blank" rel="noopener noreferrer" class="underline text-emerald-600">Lab</a> vs <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9904893/" target="_blank" rel="noopener noreferrer" class="underline text-sky-600">Fit Leakage</a>).</p>
+            </div>
+
+            <div class="space-y-1.5">
+              <label for="maskSelect" class="block text-xs font-medium text-muted">Outdoor Mask Type</label>
+              <select id="maskSelect" class="w-full card-soft rounded-xl px-3.5 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/30">
+                <option value="n95_sealed">N95 / KN95 — Tight Nose Seal (97.2%)</option>
+                <option value="ffp2_sealed">FFP2 Respirator — Sealed (94.0%)</option>
+                <option value="n95_unsealed">N95 — Loose Fit / 27% Leakage (70.0%)</option>
+                <option value="surgical">3-Ply Surgical Mask (70.0%)</option>
+                <option value="cotton">Cotton Cloth Mask (41.6%)</option>
+                <option value="none">No Mask (0%)</option>
+              </select>
+            </div>
+
+            <div class="space-y-1.5">
+              <div class="flex justify-between text-xs text-muted">
+                <label for="outdoorHoursSlider">Time Outdoors</label>
+                <span id="outdoorHoursReadout" class="font-mono font-medium">2.5 hrs/day</span>
+              </div>
+              <input id="outdoorHoursSlider" type="range" min="0.5" max="8" step="0.5" value="2.5" class="w-full accent-sky-600 cursor-pointer" />
+            </div>
+
+            <div class="card-soft rounded-2xl p-4 flex items-center justify-between">
+              <div>
+                <span class="text-xs text-muted block">Inhaled Outdoor PM2.5</span>
+                <strong id="maskEffectivePm25" class="font-display font-bold text-2xl text-emerald-700 dark:text-emerald-400 tabular">6.1 µg/m³</strong>
+              </div>
+              <div class="text-right">
+                <span class="text-xs text-muted block">Filtration</span>
+                <strong id="maskEfficiencyPct" class="font-mono text-lg text-sky-700 dark:text-sky-400">97.2%</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="relative h-52 w-full">
+            <canvas id="maskComparisonChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- TAB 3: HOME AIR                                                   -->
+    <!-- ================================================================= -->
+    <section id="view-home" class="tab-view hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-6 card rounded-3xl p-6 space-y-5">
+          <div>
+            <h2 class="font-display font-bold text-lg tracking-tight">Room Filtration &amp; CADR Lab</h2>
+            <p class="text-xs text-muted">True HEPA vs DIY MERV-13 boxes (<a href="https://pubmed.ncbi.nlm.nih.gov/35580674/" target="_blank" rel="noopener noreferrer" class="underline text-emerald-600">PubMed</a> · <a href="https://en.wikipedia.org/wiki/Corsi%E2%80%93Rosenthal_Box" target="_blank" rel="noopener noreferrer" class="underline text-sky-600">UC Davis</a>).</p>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <label for="purifierModelSelect" class="block text-xs font-medium text-muted mb-1">Air Purifier Configuration</label>
+              <select id="purifierModelSelect" class="w-full card-soft rounded-xl px-3.5 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/30">
+                <option value="cr_5filter">DIY 5-Filter MERV-13 Corsi-Rosenthal Box (680 CFM · ~$65)</option>
+                <option value="diy_2inch">DIY Single 2" MERV-13 Box Fan (293 CFM · ~$35 / ₹2,900)</option>
+                <option value="diy_5inch">DIY Single 5" MERV-13 Box Fan (405 CFM · ~$120)</option>
+                <option value="hepa_comm">Commercial True HEPA H13 (282 CFM · ~$549)</option>
+                <option value="no_purifier">No Purifier Running</option>
+              </select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div class="card-soft rounded-xl p-3">
+                <div class="flex justify-between text-xs text-muted mb-1">
+                  <label for="roomAreaSlider">Room Size</label>
+                  <span id="roomAreaReadout" class="font-mono font-medium">220 sq ft</span>
+                </div>
+                <input id="roomAreaSlider" type="range" min="100" max="600" step="20" value="220" class="w-full accent-emerald-600 cursor-pointer" />
+              </div>
+
+              <div class="card-soft rounded-xl p-3">
+                <label for="windowSealSelect" class="block text-xs text-muted mb-1">Window Seal</label>
+                <select id="windowSealSelect" class="w-full bg-transparent text-xs font-semibold text-emerald-700 dark:text-emerald-400 focus:outline-none cursor-pointer">
+                  <option value="sealed">Weather-Stripped Sealed</option>
+                  <option value="partial">Standard Closed</option>
+                  <option value="open">Cracked / Open</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3 text-center">
+              <div class="card-soft rounded-xl p-3">
+                <span class="text-[11px] text-muted block">Air Changes</span>
+                <strong id="achReadout" class="font-mono text-base text-amber-600 dark:text-amber-400 tabular">20.9 ACH</strong>
+              </div>
+              <div class="card-soft rounded-xl p-3">
+                <span class="text-[11px] text-muted block">20-Min PM2.5</span>
+                <strong id="pm20MinReadout" class="font-mono text-base text-sky-700 dark:text-sky-400 tabular">41.4 µg/m³</strong>
+              </div>
+              <div class="card-soft rounded-xl p-3">
+                <span class="text-[11px] text-muted block">Steady Indoor</span>
+                <strong id="pm60MinReadout" class="font-mono text-base text-emerald-700 dark:text-emerald-400 tabular">26.2 µg/m³</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="relative h-52 w-full">
+            <canvas id="iaqDecayChart"></canvas>
+          </div>
+        </div>
+
+        <div class="lg:col-span-6 card rounded-3xl p-6 flex flex-col justify-between space-y-5">
+          <div class="space-y-4">
+            <div class="flex items-center justify-between gap-2">
+              <div>
+                <h2 class="font-display font-bold text-lg tracking-tight">2D Home &amp; Hostel Zones</h2>
+                <p class="text-xs text-muted">Select any zone to toggle its localized air shield.</p>
+              </div>
+              <button id="aiBalanceZonesBtn" type="button" class="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500 transition">
+                Purify All 4
+              </button>
+            </div>
+            <div id="floorplanGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+          </div>
+
+          <div class="space-y-2.5 pt-3 border-t border-slate-200 dark:border-slate-800">
+            <details class="card-soft rounded-2xl p-3.5" open>
+              <summary class="flex items-center justify-between text-xs font-semibold">
+                <span>Zero-Cost Home Air Hacks (<span id="iaqHacksActiveBadge" class="text-emerald-700 dark:text-emerald-400 font-mono">4/6</span>)</span>
+                <span class="text-muted font-mono">I/O Ratio: <strong id="ioRatioReadout" class="text-emerald-700 dark:text-emerald-400">0.12</strong></span>
+              </summary>
+              <div id="iaqHacksContainer" class="mt-3 space-y-2"></div>
+            </details>
+
+            <details class="card-soft rounded-2xl p-3.5">
+              <summary class="flex items-center justify-between text-xs font-semibold">
+                <span>NASA Clean Air VOC Plants Companion</span>
+                <a href="https://www.benholm.com/academic-research/revisiting-nasas-clean-air-study/" target="_blank" rel="noopener noreferrer" class="text-emerald-700 dark:text-emerald-400 underline font-normal">NASA 1989 ↗</a>
+              </summary>
+              <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-muted">
+                <div class="p-2 rounded-lg card"><strong>Snake Plant</strong> · Night O₂ &amp; Benzene</div>
+                <div class="p-2 rounded-lg card"><strong>Areca Palm</strong> · Humidity &amp; Xylene</div>
+                <div class="p-2 rounded-lg card"><strong>Peace Lily</strong> · 6 VOCs &amp; 78% Mold</div>
+                <div class="p-2 rounded-lg card"><strong>Spider Plant</strong> · CO &amp; Formaldehyde</div>
+              </div>
+            </details>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- TAB 4: IMPACT & EXPORT                                            -->
+    <!-- ================================================================= -->
+    <section id="view-impact" class="tab-view hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-6 card rounded-3xl p-6 space-y-5">
+          <div>
+            <h2 class="font-display font-bold text-lg tracking-tight">Sustainable Commute Swaps</h2>
+            <p class="text-xs text-muted">Lifecycle GHG math from <a href="https://www.itf-oecd.org/sites/default/files/docs/life-cycle-assessment-passenger-transport-india.pdf" target="_blank" rel="noopener noreferrer" class="underline text-emerald-600">ITF-OECD India</a> &amp; <a href="https://ourworldindata.org/travel-carbon-footprint" target="_blank" rel="noopener noreferrer" class="underline text-sky-600">OWID</a>.</p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label for="baselineModeSelect" class="block text-xs font-medium text-muted mb-1">Current Mode</label>
+              <select id="baselineModeSelect" class="w-full card-soft rounded-xl px-3 py-2 text-sm font-medium focus:outline-none">
+                <option value="private_car">Private Car</option>
+                <option value="shared_car">Shared Ride-Hail Cab</option>
+                <option value="ice_2w">Petrol Two-Wheeler</option>
+              </select>
+            </div>
+            <div>
+              <label for="sustainableSwapSelect" class="block text-xs font-medium text-muted mb-1">Switch To</label>
+              <select id="sustainableSwapSelect" class="w-full card-soft rounded-xl px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400 font-semibold focus:outline-none">
+                <option value="ebus">Electric Bus (-71%)</option>
+                <option value="bicycle">Bicycle / Walk (-75%)</option>
+                <option value="metro_ev2w">Metro + EV 2W (-68%)</option>
+                <option value="ev_2w">Electric 2-Wheeler (-62%)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div class="card-soft rounded-xl p-3">
+              <div class="flex justify-between text-xs text-muted mb-1">
+                <label for="commuteKmSlider">Daily Distance</label>
+                <span id="commuteKmReadout" class="font-mono font-medium">24 km</span>
+              </div>
+              <input id="commuteKmSlider" type="range" min="4" max="80" step="2" value="24" class="w-full accent-teal-600 cursor-pointer" />
+            </div>
+            <div class="card-soft rounded-xl p-3">
+              <div class="flex justify-between text-xs text-muted mb-1">
+                <label for="commuteDaysSlider">Days / Week</label>
+                <span id="commuteDaysReadout" class="font-mono font-medium">6 days</span>
+              </div>
+              <input id="commuteDaysSlider" type="range" min="1" max="7" step="1" value="6" class="w-full accent-teal-600 cursor-pointer" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-3 text-center">
+            <div class="card-soft rounded-xl p-3">
+              <span class="text-[11px] text-muted block">GHG Cut</span>
+              <strong id="swapPctCutReadout" class="font-mono text-base text-emerald-700 dark:text-emerald-400">-71%</strong>
+            </div>
+            <div class="card-soft rounded-xl p-3">
+              <span class="text-[11px] text-muted block">Annual Saved</span>
+              <strong id="swapAnnualCo2Readout" class="font-mono text-base text-teal-700 dark:text-teal-400">511 kg</strong>
+            </div>
+            <div class="card-soft rounded-xl p-3">
+              <span class="text-[11px] text-muted block">Abatement Value</span>
+              <strong id="swapInrSavedReadout" class="font-mono text-base text-amber-600 dark:text-amber-400">₹6,195/yr</strong>
+            </div>
+          </div>
+
+          <div class="relative h-48 w-full">
+            <canvas id="sustainableSwapChart"></canvas>
+          </div>
+        </div>
+
+        <div class="lg:col-span-6 card rounded-3xl p-6 flex flex-col justify-between space-y-5">
+          <div class="space-y-4">
+            <div class="flex items-center justify-between gap-2">
+              <div>
+                <h2 class="font-display font-bold text-lg tracking-tight">Community &amp; Hostel Shield</h2>
+                <p class="text-xs text-muted">Scale clean air across colonies, schools &amp; hostels.</p>
+              </div>
+              <button id="downloadSvgPosterBtn" type="button" class="px-3.5 py-1.5 rounded-xl bg-slate-900 text-white dark:bg-emerald-500 dark:text-slate-950 font-semibold text-xs hover:opacity-90 transition">
+                Download SVG
+              </button>
+            </div>
+
+            <div class="card-soft rounded-xl p-3">
+              <div class="flex justify-between text-xs text-muted mb-1">
+                <label for="communityUnitsSlider">Participating Households / Rooms</label>
+                <span id="communityUnitsReadout" class="font-mono text-emerald-700 dark:text-emerald-400 font-semibold">120 units</span>
+              </div>
+              <input id="communityUnitsSlider" type="range" min="10" max="500" step="10" value="120" class="w-full accent-emerald-600 cursor-pointer" />
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 text-center">
+              <div class="card-soft rounded-xl p-3">
+                <span class="text-[11px] text-muted block">Collective CO₂ Avoided</span>
+                <strong id="commCo2Total" class="font-mono text-base text-emerald-700 dark:text-emerald-400">61.3 t/yr</strong>
+              </div>
+              <div class="card-soft rounded-xl p-3">
+                <span class="text-[11px] text-muted block">DIY vs HEPA Savings</span>
+                <strong id="commPurifierSavings" class="font-mono text-base text-amber-600 dark:text-amber-400">$58,080</strong>
+              </div>
+            </div>
+
+            <div id="svgPosterContainer" class="card-soft rounded-2xl p-2 flex items-center justify-center overflow-hidden"></div>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+            <button id="copyBulletinBtn" type="button" class="px-3 py-1.5 rounded-xl card-soft hover:border-emerald-500/40 text-xs font-semibold text-emerald-700 dark:text-emerald-400 transition">
+              Copy WhatsApp Advisory
+            </button>
+            <div class="flex gap-2">
+              <button id="exportJsonBtn" type="button" class="px-2.5 py-1.5 rounded-xl card-soft text-xs font-mono hover:border-slate-400">.JSON</button>
+              <button id="exportMdBtn" type="button" class="px-2.5 py-1.5 rounded-xl card-soft text-xs font-mono hover:border-slate-400">.MD</button>
+              <button id="printPdfBtn" type="button" class="px-2.5 py-1.5 rounded-xl card-soft text-xs font-mono hover:border-slate-400">Print PDF</button>
+            </div>
+          </div>
+          <label for="communityBulletinBox" class="sr-only">Community WhatsApp Advisory</label>
+          <textarea id="communityBulletinBox" class="hidden" readonly></textarea>
+        </div>
+      </div>
+
+      <!-- PromptWars Submission Answers Drawer -->
+      <details class="card rounded-2xl p-5">
+        <summary class="flex items-center justify-between text-sm font-semibold">
+          <span>PromptWars Challenge 6 — Ready-to-Paste Submission Answers</span>
+          <span class="text-xs font-mono text-muted">Expand</span>
+        </summary>
+        <div class="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="card-soft rounded-xl p-3.5 space-y-2">
+            <div class="flex justify-between items-center text-xs">
+              <label for="subQ1Long" class="font-semibold">Q1: Solution Summary (&lt;1024 chars)</label>
+              <button type="button" data-copy-target="subQ1Long" class="copy-btn px-2.5 py-0.5 rounded bg-emerald-600 text-white font-mono">Copy</button>
+            </div>
+            <textarea id="subQ1Long" rows="4" readonly class="w-full bg-transparent text-xs font-mono text-muted focus:outline-none">Built and deployed VayuAI (Zero-API-Key Professional Edition), a GenAI-powered Urban Air Quality & Winter Smog Assistant for families and communities (PromptWars Challenge 6). Features: (1) Free zero-API-key Open-Meteo live city search + CPCB NAQI piecewise telemetry, CAQM GRAP Stages I-IV, radial AQI gauge, and Berkeley Earth cigarette equivalence; (2) Low-Emission 24-Hour Routine Builder with keyword filtering & N95 fit-leakage lab; (3) DIY MERV-13 Corsi-Rosenthal Box vs HEPA CADR simulator + interactive 2D 4-Zone Home Floorplan & NASA VOC plant guide; (4) ITF-OECD verified Sustainable Commute Swap calculator (-71% Electric Bus, -75% Cycling); and (5) Community Shield with bilingual WhatsApp advisories and downloadable SVG posters.</textarea>
+          </div>
+
+          <div class="card-soft rounded-xl p-3.5 space-y-2">
+            <div class="flex justify-between items-center text-xs">
+              <label for="subQ2Long" class="font-semibold">Q2: GenAI Services Utilized (&lt;1024 chars)</label>
+              <button type="button" data-copy-target="subQ2Long" class="copy-btn px-2.5 py-0.5 rounded bg-sky-600 text-white font-mono">Copy</button>
+            </div>
+            <textarea id="subQ2Long" rows="4" readonly class="w-full bg-transparent text-xs font-mono text-muted focus:outline-none">1. Google Antigravity IDE: Used for intent-driven engineering, executive responsive UI design, Chart.js data visualization wiring, XSS/input security hardening, automated QA test suite generation, and zero-cost Vercel/Netlify deployment configuration.
+2. Google Gemini 2.5 Flash API (optional session key or /api/gemini serverless proxy) + Deterministic CPCB/WHO Reasoning Engine: Powers bilingual English/Hinglish winter smog action plans, CADR room-decay explanations, mask fit-leakage advisories, and community WhatsApp bulletins with zero mandatory API key barrier.</textarea>
+          </div>
+        </div>
+      </details>
+    </section>
+
+  </main>
+
+  <!-- Engine Settings Modal -->
+  <div id="apiModal" class="fixed inset-0 z-50 hidden bg-slate-950/60 backdrop-blur-sm flex items-center justify-center px-4 no-print">
+    <div class="card rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <h3 class="font-display font-bold text-base">Engine Settings</h3>
+        <button id="closeApiModalBtn" type="button" class="text-xs text-muted hover:text-slate-900 dark:hover:text-white px-2 py-1 rounded card-soft">Close</button>
+      </div>
+      <p class="text-xs text-muted leading-relaxed">
+        <strong>Zero-API-Key Ready:</strong> Live global air quality (Open-Meteo CAMS) and the CPCB/WHO reasoning engine run completely free. Optionally provide a session-only Gemini key below (stored strictly in memory):
+      </p>
+      <label for="geminiApiKeyInput" class="sr-only">Optional Google Gemini API Key</label>
+      <input id="geminiApiKeyInput" type="password" maxlength="120" autocomplete="off" placeholder="Optional AIzaSy... session key" class="w-full card-soft rounded-xl px-3.5 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/30" />
+      <div class="flex justify-end gap-2">
+        <button id="clearApiKeyBtn" type="button" class="px-3 py-1.5 rounded-lg text-xs card-soft font-medium">Use Free Engine</button>
+        <button id="saveApiKeyBtn" type="button" class="px-4 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toastBox" role="status" aria-live="polite" class="fixed bottom-5 right-5 z-50 hidden card px-4 py-2.5 rounded-xl text-xs font-semibold text-emerald-700 dark:text-emerald-400 shadow-lg border border-emerald-500/30 no-print">
+    <span id="toastMessage">Done</span>
+  </div>
+
+  <script>
+    const CITY_PROFILES = {
+      delhi: { name: 'Delhi NCR', aqi: 367, pm25: 218.0, pm10: 382.0, hourlyOutdoor: [248, 260, 252, 195, 145, 162, 228, 255] },
+      jodhpur: { name: 'Jodhpur, RJ', aqi: 265, pm25: 131.2, pm10: 119.2, hourlyOutdoor: [148, 162, 150, 118, 88, 108, 138, 145] },
+      jaipur: { name: 'Jaipur, RJ', aqi: 237, pm25: 149.2, pm10: 101.5, hourlyOutdoor: [164, 178, 165, 126, 94, 118, 154, 160] },
+      mumbai: { name: 'Mumbai, MH', aqi: 146, pm25: 64.0, pm10: 86.0, hourlyOutdoor: [72, 82, 76, 58, 44, 54, 68, 70] }
+    };
+
+    const MASK_DATA = {
+      n95_sealed: { label: 'N95 (Sealed)', eff: 0.972 },
+      ffp2_sealed: { label: 'FFP2 (Sealed)', eff: 0.94 },
+      n95_unsealed: { label: 'N95 (Loose)', eff: 0.70 },
+      surgical: { label: 'Surgical', eff: 0.70 },
+      cotton: { label: 'Cloth Mask', eff: 0.416 },
+      none: { label: 'No Mask', eff: 0.0 }
+    };
+
+    const PURIFIER_MODELS = {
+      cr_5filter: { name: 'DIY 5-Filter MERV-13 CR-Box', cadr: 680, costUsd: 65, effFactor: 0.88 },
+      diy_2inch: { name: 'DIY Single 2" MERV-13 Fan', cadr: 293, costUsd: 35, effFactor: 0.76 },
+      diy_5inch: { name: 'DIY Single 5" MERV-13 Fan', cadr: 405, costUsd: 120, effFactor: 0.85 },
+      hepa_comm: { name: 'Commercial True HEPA H13', cadr: 282, costUsd: 549, effFactor: 0.90 },
+      no_purifier: { name: 'No Purifier', cadr: 0, costUsd: 0, effFactor: 0.15 }
+    };
+
+    const ROUTINE_ITEMS = [
+      { id: 'r1', time: '06:00–09:00', title: 'Move Morning Exercise Indoors', desc: 'Avoids <100m winter inversion peak.', doseSavePct: 18, active: true },
+      { id: 'r2', time: '09:00–11:00', title: 'Electric Bus / Metro + Sealed N95', desc: '-71% transit GHG & 97.2% filtration.', doseSavePct: 16, active: true },
+      { id: 'r3', time: '13:00–16:00', title: '15-Min Solar Cross-Ventilation', desc: 'Flushes CO₂ at lowest PM2.5 hour.', doseSavePct: 12, active: true },
+      { id: 'r4', time: '16:30–19:30', title: 'Walk / Cycle Short Errands (<3 km)', desc: '-75% short-trip travel emissions.', doseSavePct: 10, active: true },
+      { id: 'r5', time: '19:30–21:30', title: 'Kitchen Exhaust ON · Zero Incense', desc: 'Keeps indoor/outdoor ratio < 1.0.', doseSavePct: 14, active: true },
+      { id: 'r6', time: '22:00–06:00', title: 'Overnight Bedroom MERV-13 / HEPA', desc: 'Cuts sleep PM2.5 exposure by 70–92%.', doseSavePct: 22, active: false }
+    ];
+
+    const IAQ_HACKS = [
+      { id: 'h1', title: 'DIY MERV-13 Box Fan (₹2,900–₹5,400)', tag: '70–92% Drop', active: true },
+      { id: 'h2', title: 'Kitchen Exhaust Hood During Cooking', tag: 'I/O < 1.0', active: true },
+      { id: 'h3', title: 'Wet Microfiber Mop (No Dry Broom)', tag: 'Zero Dust', active: true },
+      { id: 'h4', title: 'Pause Indoor Agarbatti & Coils', tag: 'No Spikes', active: true },
+      { id: 'h5', title: 'Seal Window Gaps with Foam Tape', tag: '-35% Inflow', active: false },
+      { id: 'h6', title: 'Ventilate Only Between 1–4 PM', tag: 'Solar Dip', active: false }
+    ];
+
+    const state = {
+      activeTab: 'overview',
+      cityKey: 'delhi',
+      profileKey: 'family',
+      customAqi: 367,
+      customPm25: 218.0,
+      bilingual: true,
+      maskKey: 'n95_sealed',
+      outdoorHours: 2.5,
+      purifierKey: 'cr_5filter',
+      roomArea: 220,
+      windowSeal: 'sealed',
+      baselineMode: 'private_car',
+      sustainableSwap: 'ebus',
+      commuteKm: 24,
+      commuteDays: 6,
+      communityUnits: 120,
+      routineFilter: '',
+      geminiApiKey: '',
+      zones: [
+        { id: 'Z1', name: 'Z1 · Living / Study', device: 'DIY MERV-13 CR-Box', reduction: 0.88, active: true },
+        { id: 'Z2', name: 'Z2 · Kitchen', device: 'Exhaust Hood + Wet Mop', reduction: 0.76, active: true },
+        { id: 'Z3', name: 'Z3 · Bedroom', device: 'Overnight 2" MERV-13', reduction: 0.90, active: true },
+        { id: 'Z4', name: 'Z4 · Balcony Airlock', device: 'Foam Strip Seal', reduction: 0.58, active: false }
+      ]
+    };
+
+    let hourlySmogChartInst = null;
+    let maskChartInst = null;
+    let iaqDecayChartInst = null;
+    let swapChartInst = null;
+    let autoDemoTimer = null;
+    let lastAiCallTimestamp = 0;
+
+    function escapeHtml(raw) {
+      return String(raw ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function sanitizeNumber(val, min, max, fallback) {
+      const n = Number(val);
+      return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
+    }
+
+    function pm25ToCpcbAqi(pm25) {
+      const c = sanitizeNumber(pm25, 0, 1000, 60);
+      const bands = [[0, 30, 0, 50], [30, 60, 51, 100], [60, 90, 101, 200], [90, 120, 201, 300], [120, 250, 301, 400], [250, 500, 401, 500]];
+      for (const [cLo, cHi, iLo, iHi] of bands) {
+        if (c <= cHi) return Math.round(iLo + Math.max(0, (c - cLo) / (cHi - cLo)) * (iHi - iLo));
+      }
+      return 500;
+    }
+
+    function aqiToCpcbPm25(aqi) {
+      const a = sanitizeNumber(aqi, 0, 500, 100);
+      const bands = [[0, 50, 0, 30], [51, 100, 31, 60], [101, 200, 61, 90], [201, 300, 91, 120], [301, 400, 121, 250], [401, 500, 251, 380]];
+      for (const [iLo, iHi, cLo, cHi] of bands) {
+        if (a <= iHi) return +(cLo + Math.max(0, (a - iLo) / (iHi - iLo)) * (cHi - cLo)).toFixed(1);
+      }
+      return 380.0;
+    }
+
+    function getCpcbCategory(aqi) {
+      if (aqi <= 50) return { label: 'Good', grap: 'Clean Baseline', hex: '#059669', textClass: 'text-emerald-600 dark:text-emerald-400', badgeClass: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400' };
+      if (aqi <= 100) return { label: 'Satisfactory', grap: 'NAAQS Safe', hex: '#65a30d', textClass: 'text-lime-600 dark:text-lime-400', badgeClass: 'bg-lime-50 text-lime-700 dark:bg-lime-500/15 dark:text-lime-400' };
+      if (aqi <= 200) return { label: 'Moderate', grap: 'Pre-GRAP Watch', hex: '#d97706', textClass: 'text-amber-600 dark:text-amber-400', badgeClass: 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400' };
+      if (aqi <= 300) return { label: 'Poor', grap: 'GRAP Stage I', hex: '#ea580c', textClass: 'text-orange-600 dark:text-orange-400', badgeClass: 'bg-orange-50 text-orange-700 dark:bg-orange-500/15 dark:text-orange-400' };
+      if (aqi <= 400) return { label: 'Very Poor', grap: 'GRAP Stage II', hex: '#dc2626', textClass: 'text-red-600 dark:text-red-400', badgeClass: 'bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-400' };
+      if (aqi <= 450) return { label: 'Severe', grap: 'GRAP Stage III', hex: '#e11d48', textClass: 'text-rose-600 dark:text-rose-400', badgeClass: 'bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400' };
+      return { label: 'Severe+', grap: 'GRAP Stage IV', hex: '#9333ea', textClass: 'text-purple-600 dark:text-purple-400', badgeClass: 'bg-purple-50 text-purple-700 dark:bg-purple-500/15 dark:text-purple-400' };
+    }
+
+    function computeMetrics() {
+      const outdoorPm25 = Math.max(10, state.customPm25);
+      const purifier = PURIFIER_MODELS[state.purifierKey] || PURIFIER_MODELS.cr_5filter;
+      const sealPenalty = state.windowSeal === 'sealed' ? 0 : (state.windowSeal === 'partial' ? 0.08 : 0.22);
+      const activeHacksCount = IAQ_HACKS.filter(h => h.active).length;
+      const netIndoorReduction = Math.min(0.92, Math.max(0.12, purifier.effFactor - sealPenalty + activeHacksCount * 0.015));
+      const steadyIndoorPm25 = +(outdoorPm25 * (1 - netIndoorReduction)).toFixed(1);
+      const pm20Min = +(outdoorPm25 * (1 - netIndoorReduction * 0.85)).toFixed(1);
+      const ach = +((purifier.cadr * 60) / Math.max(800, state.roomArea * 9)).toFixed(1);
+      const ioRatio = +(steadyIndoorPm25 / outdoorPm25).toFixed(2);
+
+      const activeRoutines = ROUTINE_ITEMS.filter(r => r.active);
+      const routineDoseSum = activeRoutines.reduce((acc, r) => acc + r.doseSavePct, 0);
+      const mask = MASK_DATA[state.maskKey] || MASK_DATA.n95_sealed;
+      const outdoorEffectivePm25 = +(outdoorPm25 * (1 - mask.eff)).toFixed(1);
+      const combinedDoseCut = Math.min(94.5, +(routineDoseSum * 0.55 + mask.eff * 42).toFixed(1));
+
+      const baselineMap = { private_car: 192, shared_car: 234, ice_2w: 88 };
+      const swapMap = {
+        ebus: { label: 'Electric Bus', car: 0.71, shared: 0.79, w2: 0.35 },
+        bicycle: { label: 'Bicycle / Walk', car: 0.75, shared: 0.82, w2: 0.65 },
+        metro_ev2w: { label: 'Metro + EV 2W', car: 0.68, shared: 0.75, w2: 0.32 },
+        ev_2w: { label: 'Electric 2W', car: 0.62, shared: 0.70, w2: 0.24 }
+      };
+      const baseG = baselineMap[state.baselineMode] || 192;
+      const swapObj = swapMap[state.sustainableSwap] || swapMap.ebus;
+      const pctCut = state.baselineMode === 'shared_car' ? swapObj.shared : (state.baselineMode === 'ice_2w' ? swapObj.w2 : swapObj.car);
+      const monthlyKm = state.commuteKm * state.commuteDays * 4.33;
+      const monthlyCo2SavedKg = +((monthlyKm * baseG * pctCut) / 1000).toFixed(1);
+      const annualCo2SavedKg = Math.round(monthlyCo2SavedKg * 12);
+      const annualInrAbatement = Math.round((annualCo2SavedKg / 1000) * 12118);
+
+      return {
+        outdoorPm25, steadyIndoorPm25, pm20Min,
+        netIndoorReductionPct: Math.round(netIndoorReduction * 100),
+        ach, ioRatio, purifier,
+        activeRoutinesCount: activeRoutines.length, activeHacksCount,
+        mask, outdoorEffectivePm25, combinedDoseCut,
+        pctCut: Math.round(pctCut * 100),
+        swapLabel: swapObj.label,
+        monthlyCo2SavedKg, annualCo2SavedKg, annualInrAbatement
+      };
+    }
+
+    function showToast(msg) {
+      const box = document.getElementById('toastBox');
+      const txt = document.getElementById('toastMessage');
+      if (!box || !txt) return;
+      txt.textContent = msg;
+      box.classList.remove('hidden');
+      clearTimeout(window.__toastTimer);
+      window.__toastTimer = setTimeout(() => box.classList.add('hidden'), 2800);
+    }
+
+    function renderAll() {
+      const city = CITY_PROFILES[state.cityKey] || CITY_PROFILES.delhi;
+      const cat = getCpcbCategory(state.customAqi);
+      const m = computeMetrics();
+      const scaleRatio = m.outdoorPm25 / Math.max(1, city.pm25);
+
+      const aqiEl = document.getElementById('liveAqiValue');
+      if (aqiEl) {
+        aqiEl.textContent = state.customAqi;
+        aqiEl.className = `font-display font-extrabold text-3xl tabular tracking-tight ${cat.textClass}`;
+      }
+      const gaugeArc = document.getElementById('aqiGaugeArc');
+      if (gaugeArc) {
+        const pct = Math.min(1, Math.max(0.05, state.customAqi / 500));
+        gaugeArc.setAttribute('stroke', cat.hex);
+        gaugeArc.setAttribute('stroke-dashoffset', (314.16 * (1 - pct)).toFixed(1));
+      }
+      const grapEl = document.getElementById('grapStageBadge');
+      if (grapEl) {
+        grapEl.textContent = cat.grap;
+        grapEl.className = `text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-full ${cat.badgeClass}`;
+      }
+
+      document.getElementById('cityTitleDisplay').textContent = city.name;
+      document.getElementById('liveAqiCategory').textContent = cat.label;
+      document.getElementById('livePm25Text').textContent = `${m.outdoorPm25.toFixed(1)} µg/m³`;
+      document.getElementById('whoMultiplierText').textContent = `${(m.outdoorPm25 / 15).toFixed(1)}× WHO`;
+
+      document.getElementById('kpiIndoorPm25').textContent = `${m.steadyIndoorPm25} µg/m³`;
+      document.getElementById('kpiIndoorDropPct').textContent = `-${m.netIndoorReductionPct}% vs outdoor`;
+      document.getElementById('outdoorCigEq').textContent = (m.outdoorPm25 / 22).toFixed(1);
+      document.getElementById('indoorCigEq').textContent = (m.steadyIndoorPm25 / 22).toFixed(1);
+      document.getElementById('kpiDoseReduction').textContent = `${m.combinedDoseCut}%`;
+      document.getElementById('kpiActiveRoutinesCount').textContent = `${m.activeRoutinesCount}/6 habits + ${m.mask.label}`;
+      document.getElementById('kpiCo2Saved').textContent = `${m.monthlyCo2SavedKg} kg/mo`;
+      document.getElementById('kpiTransitModeLabel').textContent = `-${m.pctCut}% via ${m.swapLabel}`;
+
+      document.getElementById('morningPeakReadout').textContent = `${Math.round(city.hourlyOutdoor[1] * scaleRatio)} µg/m³`;
+      document.getElementById('afternoonDipReadout').textContent = `${Math.round(city.hourlyOutdoor[4] * scaleRatio)} µg/m³`;
+
+      renderRoutineList();
+      document.getElementById('outdoorHoursReadout').textContent = `${state.outdoorHours} hrs/day`;
+      document.getElementById('maskEffectivePm25').textContent = `${m.outdoorEffectivePm25} µg/m³`;
+      document.getElementById('maskEfficiencyPct').textContent = `${(m.mask.eff * 100).toFixed(1)}%`;
+
+      document.getElementById('roomAreaReadout').textContent = `${state.roomArea} sq ft`;
+      document.getElementById('achReadout').textContent = `${m.ach} ACH`;
+      document.getElementById('pm20MinReadout').textContent = `${m.pm20Min} µg/m³`;
+      document.getElementById('pm60MinReadout').textContent = `${m.steadyIndoorPm25} µg/m³`;
+      document.getElementById('ioRatioReadout').textContent = m.ioRatio;
+      document.getElementById('iaqHacksActiveBadge').textContent = `${m.activeHacksCount}/${IAQ_HACKS.length}`;
+      renderIaqHacks();
+      renderFloorplanZones(m.outdoorPm25);
+
+      document.getElementById('commuteKmReadout').textContent = `${state.commuteKm} km`;
+      document.getElementById('commuteDaysReadout').textContent = `${state.commuteDays} days`;
+      document.getElementById('swapPctCutReadout').textContent = `-${m.pctCut}%`;
+      document.getElementById('swapAnnualCo2Readout').textContent = `${m.annualCo2SavedKg} kg`;
+      document.getElementById('swapInrSavedReadout').textContent = `₹${m.annualInrAbatement.toLocaleString('en-IN')}/yr`;
+
+      const units = state.communityUnits;
+      document.getElementById('communityUnitsReadout').textContent = `${units} units`;
+      const collectiveTonnes = ((m.annualCo2SavedKg * units) / 1000).toFixed(1);
+      document.getElementById('commCo2Total').textContent = `${collectiveTonnes} t/yr`;
+      document.getElementById('commPurifierSavings').textContent = `$${(units * (549 - 65)).toLocaleString('en-US')}`;
+
+      renderCommunityBulletin(city, cat, m, collectiveTonnes);
+      renderSvgPoster(city, cat, m);
+      updateCharts(city, scaleRatio, m);
+    }
+
+    function renderRoutineList() {
+      const container = document.getElementById('routineListContainer');
+      if (!container) return;
+      const q = (state.routineFilter || '').trim().toLowerCase();
+      const filtered = q ? ROUTINE_ITEMS.filter(r => r.title.toLowerCase().includes(q) || r.desc.toLowerCase().includes(q) || r.time.toLowerCase().includes(q)) : ROUTINE_ITEMS;
+      if (filtered.length === 0) {
+        container.innerHTML = `<div class="card-soft rounded-2xl p-6 text-center text-xs text-muted">No routines match "<strong>${escapeHtml(state.routineFilter)}</strong>". Click Reset to view all.</div>`;
+        return;
+      }
+      container.innerHTML = filtered.map(r => `
+        <div class="card-soft rounded-2xl p-4 flex items-center justify-between gap-4 border ${r.active ? 'border-emerald-500/40' : 'border-transparent'}">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] font-mono font-semibold text-emerald-700 dark:text-emerald-400">${r.time}</span>
+              <h3 class="font-semibold text-sm truncate">${r.title}</h3>
+            </div>
+            <p class="text-xs text-muted mt-0.5">${r.desc} · <span class="font-mono text-sky-700 dark:text-sky-400">-${r.doseSavePct}% PM2.5</span></p>
+          </div>
+          <button type="button" data-routine-id="${r.id}" class="routine-toggle px-3 py-1 rounded-full text-xs font-mono font-semibold shrink-0 transition ${r.active ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}">
+            ${r.active ? 'ON' : 'OFF'}
+          </button>
+        </div>
+      `).join('');
+      container.querySelectorAll('.routine-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const item = ROUTINE_ITEMS.find(r => r.id === btn.getAttribute('data-routine-id'));
+          if (item) { item.active = !item.active; renderAll(); }
+        });
+      });
+    }
+
+    function renderIaqHacks() {
+      const container = document.getElementById('iaqHacksContainer');
+      if (!container) return;
+      container.innerHTML = IAQ_HACKS.map(h => `
+        <div class="flex items-center justify-between gap-2 py-1.5 border-b border-slate-200 dark:border-slate-800 last:border-0 text-xs">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="truncate font-medium">${h.title}</span>
+            <span class="font-mono text-[10px] text-emerald-700 dark:text-emerald-400 shrink-0">${h.tag}</span>
+          </div>
+          <button type="button" data-hack-id="${h.id}" class="hack-toggle px-2 py-0.5 rounded-md font-mono text-[11px] shrink-0 ${h.active ? 'bg-emerald-600 text-white font-semibold' : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}">
+            ${h.active ? 'ON' : 'OFF'}
+          </button>
+        </div>
+      `).join('');
+      container.querySelectorAll('.hack-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const h = IAQ_HACKS.find(x => x.id === btn.getAttribute('data-hack-id'));
+          if (h) { h.active = !h.active; renderAll(); }
+        });
+      });
+    }
+
+    function renderFloorplanZones(outdoorPm25) {
+      const grid = document.getElementById('floorplanGrid');
+      if (!grid) return;
+      grid.innerHTML = state.zones.map(z => {
+        const zPm = z.active ? +(outdoorPm25 * (1 - z.reduction)).toFixed(1) : +(outdoorPm25 * 0.85).toFixed(1);
+        return `
+          <div data-zone-id="${z.id}" class="zone-card cursor-pointer card-soft rounded-2xl p-4 border ${z.active ? 'border-emerald-500/40' : 'border-rose-400/40'} hover:border-sky-500/50 transition space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-semibold text-sm">${z.name}</span>
+              <span class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full ${z.active ? 'bg-emerald-600 text-white' : 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400'}">${z.active ? 'ACTIVE' : 'OFF'}</span>
+            </div>
+            <div class="font-display font-bold text-xl tabular ${z.active ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">${zPm} µg/m³</div>
+            <div class="text-[11px] text-muted">${z.device}</div>
+          </div>
+        `;
+      }).join('');
+      grid.querySelectorAll('.zone-card').forEach(card => {
+        card.addEventListener('click', () => {
+          const target = state.zones.find(z => z.id === card.getAttribute('data-zone-id'));
+          if (target) { target.active = !target.active; renderAll(); }
+        });
+      });
+    }
+
+    function renderCommunityBulletin(city, cat, m, collectiveTonnes) {
+      const box = document.getElementById('communityBulletinBox');
+      if (!box) return;
+      box.value = `VayuAI Clean-Air Advisory — ${city.name}\nAQI: ${state.customAqi} (${cat.label}, ${cat.grap}) · PM2.5: ${m.outdoorPm25.toFixed(1)} µg/m³\n• 06:00–09:00: Keep windows sealed (inversion trap).\n• 13:00–16:00: 15-min cross-ventilation window.\n• Indoor: DIY MERV-13 box cuts room PM2.5 to ${m.steadyIndoorPm25} µg/m³ (-${m.netIndoorReductionPct}%).\n• Collective Impact (${state.communityUnits} units): ${collectiveTonnes} tCO₂e/yr saved.`;
+    }
+
+    function renderSvgPoster(city, cat, m) {
+      const container = document.getElementById('svgPosterContainer');
+      if (!container) return;
+      container.innerHTML = `<svg id="cleanAirPosterSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 280" class="w-full h-auto rounded-xl">
+        <rect width="600" height="280" rx="16" fill="#0F172A" stroke="#1E293B" stroke-width="2"/>
+        <text x="28" y="42" fill="#34D399" font-family="Plus Jakarta Sans, sans-serif" font-size="16" font-weight="bold">VAYUAI CLEAN-AIR PROTOCOL</text>
+        <text x="28" y="64" fill="#94A3B8" font-family="JetBrains Mono, monospace" font-size="12">${city.name} · CPCB AQI ${state.customAqi} (${cat.label}) · ${cat.grap}</text>
+        <rect x="28" y="86" width="260" height="120" rx="12" fill="#171B26"/>
+        <text x="42" y="112" fill="#38BDF8" font-family="Inter, sans-serif" font-size="12" font-weight="bold">SAFE TIMING &amp; MASK</text>
+        <text x="42" y="138" fill="#E2E8F0" font-family="Inter, sans-serif" font-size="11">• 06:00–09:00: Seal Windows</text>
+        <text x="42" y="160" fill="#34D399" font-family="Inter, sans-serif" font-size="11">• 13:00–16:00: 15m Cross-Vent</text>
+        <text x="42" y="182" fill="#E2E8F0" font-family="Inter, sans-serif" font-size="11">• Outdoors: Sealed N95 (97.2%)</text>
+        <rect x="312" y="86" width="260" height="120" rx="12" fill="#171B26"/>
+        <text x="326" y="112" fill="#FBBF24" font-family="Inter, sans-serif" font-size="12" font-weight="bold">INDOOR TARGET</text>
+        <text x="326" y="138" fill="#E2E8F0" font-family="Inter, sans-serif" font-size="11">• Outdoor: ${m.outdoorPm25.toFixed(1)} µg/m³</text>
+        <text x="326" y="160" fill="#34D399" font-family="Inter, sans-serif" font-size="11">• Filtered: ${m.steadyIndoorPm25} µg/m³ (-${m.netIndoorReductionPct}%)</text>
+        <text x="326" y="182" fill="#E2E8F0" font-family="Inter, sans-serif" font-size="11">• DIY MERV-13 · Exhaust ON</text>
+        <text x="300" y="246" text-anchor="middle" fill="#64748B" font-family="JetBrains Mono, monospace" font-size="10">CPCB NAQI · WHO 2021 · UC Davis MERV-13 · ITF-OECD India LCA</text>
+      </svg>`;
+    }
+
+    function initCharts() {
+      if (typeof Chart === 'undefined') return;
+      const baseOpts = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#64748b', font: { size: 11 } } } },
+        scales: {
+          x: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { display: false } },
+          y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: 'rgba(100,116,139,0.12)' } }
+        }
+      };
+
+      const ctxHourly = document.getElementById('hourlySmogChart');
+      if (ctxHourly) {
+        hourlySmogChartInst = new Chart(ctxHourly, {
+          type: 'line',
+          data: {
+            labels: ['3AM', '6AM', '9AM', '12PM', '3PM', '6PM', '9PM', '12AM'],
+            datasets: [
+              { label: 'Outdoor PM2.5', data: [248, 260, 252, 195, 145, 162, 228, 255], borderColor: '#e11d48', backgroundColor: 'rgba(225,29,72,0.08)', fill: true, tension: 0.4 },
+              { label: 'Filtered Indoor', data: [30, 32, 31, 24, 18, 20, 28, 31], borderColor: '#059669', backgroundColor: 'rgba(5,150,105,0.10)', fill: true, tension: 0.4 }
+            ]
+          },
+          options: baseOpts
+        });
+      }
+
+      const ctxMask = document.getElementById('maskComparisonChart');
+      if (ctxMask) {
+        maskChartInst = new Chart(ctxMask, {
+          type: 'bar',
+          data: {
+            labels: ['N95 Seal', 'FFP2', 'N95 Loose', 'Surgical', 'Cloth'],
+            datasets: [{ label: 'Filtration %', data: [97.2, 94.0, 70.0, 70.0, 41.6], backgroundColor: ['#059669', '#0284c7', '#d97706', '#2563eb', '#7c3aed'], borderRadius: 8 }]
+          },
+          options: { ...baseOpts, plugins: { legend: { display: false } } }
+        });
+      }
+
+      const ctxDecay = document.getElementById('iaqDecayChart');
+      if (ctxDecay) {
+        iaqDecayChartInst = new Chart(ctxDecay, {
+          type: 'line',
+          data: {
+            labels: ['0m', '10m', '20m', '30m', '40m', '50m', '60m'],
+            datasets: [
+              { label: 'Filtered Room', data: [218, 95, 41, 30, 27, 26, 26], borderColor: '#059669', backgroundColor: 'rgba(5,150,105,0.10)', fill: true, tension: 0.35 },
+              { label: 'Unfiltered', data: [218, 205, 196, 190, 186, 185, 185], borderColor: '#94a3b8', borderDash: [4, 4], fill: false, tension: 0.35 }
+            ]
+          },
+          options: baseOpts
+        });
+      }
+
+      const ctxSwap = document.getElementById('sustainableSwapChart');
+      if (ctxSwap) {
+        swapChartInst = new Chart(ctxSwap, {
+          type: 'bar',
+          data: {
+            labels: ['Cab', 'Car', 'EV 2W', 'Cycle', 'E-Bus'],
+            datasets: [{ label: 'Relative GHG (Car = 100)', data: [138, 100, 38, 25, 29], backgroundColor: ['#dc2626', '#ea580c', '#0284c7', '#059669', '#0d9488'], borderRadius: 8 }]
+          },
+          options: { ...baseOpts, plugins: { legend: { display: false } } }
+        });
+      }
+    }
+
+    function updateCharts(city, scaleRatio, m) {
+      if (hourlySmogChartInst) {
+        const out = city.hourlyOutdoor.map(v => Math.round(v * scaleRatio));
+        const factor = 1 - (m.netIndoorReductionPct / 100);
+        hourlySmogChartInst.data.datasets[0].data = out;
+        hourlySmogChartInst.data.datasets[1].data = out.map(v => Math.max(8, Math.round(v * factor)));
+        hourlySmogChartInst.update('none');
+      }
+      if (iaqDecayChartInst) {
+        const s = m.outdoorPm25, t = m.steadyIndoorPm25, p20 = m.pm20Min;
+        iaqDecayChartInst.data.datasets[0].data = [s, +((s + p20) / 2).toFixed(1), p20, +((p20 + t) / 2).toFixed(1), +(t * 1.03).toFixed(1), t, t];
+        iaqDecayChartInst.data.datasets[1].data = [s, +(s * 0.95).toFixed(1), +(s * 0.91).toFixed(1), +(s * 0.88).toFixed(1), +(s * 0.86).toFixed(1), +(s * 0.85).toFixed(1), +(s * 0.85).toFixed(1)];
+        iaqDecayChartInst.update('none');
+      }
+    }
+
+    function generateBuiltInAiResponse(qText) {
+      const city = CITY_PROFILES[state.cityKey] || CITY_PROFILES.delhi;
+      const cat = getCpcbCategory(state.customAqi);
+      const m = computeMetrics();
+      const q = String(qText || '').toLowerCase();
+
+      if (q.includes('morning') || q.includes('inversion')) {
+        return {
+          title: `Morning Smog Shield · ${city.name}`,
+          english: `Keep windows sealed from 06:00–09:00 while winter inversions trap PM2.5 below 100m (${m.outdoorPm25.toFixed(1)} µg/m³). Shift walks indoors and wear a tight-seal N95 (97.2% filtration).`,
+          hinglish: `Subah 6–9 baje khidkiyan band rakhein aur walk indoor karein; bahar tight N95 mask pehnein.`,
+          sourceMode: 'Zero-Key CPCB/WHO Engine'
+        };
+      }
+      if (q.includes('diy') || q.includes('purifier') || q.includes('merv')) {
+        return {
+          title: `DIY MERV-13 Purifier (${m.purifier.cadr} CFM)`,
+          english: `A single 2" MERV-13 filter taped to a box fan delivers 293 CFM for ~$35 (₹2,900), while a 5-filter Corsi-Rosenthal box hits 600–850 CFM — cutting room PM2.5 by 70%–92% in 20 minutes.`,
+          hinglish: `Box fan + MERV-13 filter se ₹2,900–₹5,400 me 70%–92% tak kamre ka PM2.5 kam hota hai.`,
+          sourceMode: 'Zero-Key CPCB/WHO Engine'
+        };
+      }
+      if (q.includes('kitchen') || q.includes('indoor')) {
+        return {
+          title: `Zero-Spike Indoor Air Protocol`,
+          english: `Run your kitchen exhaust fan during frying, switch dry sweeping to wet mopping, and pause agarbatti/coils to keep your Indoor/Outdoor ratio at ${m.ioRatio} (${m.steadyIndoorPm25} µg/m³).`,
+          hinglish: `Cooking ke time exhaust ON rakhein, geela pocha lagayein, aur indoor dhuan band rakhein.`,
+          sourceMode: 'Zero-Key CPCB/WHO Engine'
+        };
+      }
+      return {
+        title: `${city.name} Action Plan · AQI ${state.customAqi} (${cat.label})`,
+        english: `Ventilate strictly between 13:00–16:00, run ${m.purifier.name} to drop indoor PM2.5 to ${m.steadyIndoorPm25} µg/m³ (-${m.netIndoorReductionPct}%), and use ${m.swapLabel} to cut commute emissions by ${m.pctCut}%.`,
+        hinglish: `Dopahar 1–4 baje ventilation karein, indoor filtration chalayein (${m.steadyIndoorPm25} µg/m³), aur ${m.swapLabel} se ${m.pctCut}% CO₂ bachayein.`,
+        sourceMode: 'Zero-Key CPCB/WHO Engine'
+      };
+    }
+
+    function appendAiCard(resp) {
+      const stream = document.getElementById('aiChatStream');
+      if (!stream) return;
+      const card = document.createElement('div');
+      card.className = 'card-soft rounded-2xl p-4 space-y-2';
+      card.innerHTML = `
+        <div class="flex items-center justify-between gap-2">
+          <strong class="text-xs sm:text-sm text-emerald-700 dark:text-emerald-400">${escapeHtml(resp.title)}</strong>
+          <span class="text-[10px] font-mono text-muted">${escapeHtml(resp.sourceMode || 'Zero-Key Engine')}</span>
+        </div>
+        <p class="text-xs sm:text-sm leading-relaxed">${escapeHtml(resp.english)}</p>
+        ${state.bilingual ? `<p class="text-xs text-sky-700 dark:text-sky-300 pt-1.5 border-t border-slate-200 dark:border-slate-800 font-medium">Hinglish: ${escapeHtml(resp.hinglish)}</p>` : ''}
+      `;
+      stream.prepend(card);
+    }
+
+    async function handleUserPrompt(promptText) {
+      const cleaned = String(promptText || '').trim().slice(0, 280);
+      if (!cleaned) return;
+      const now = Date.now();
+      if (now - lastAiCallTimestamp < 1200) { showToast('Please wait a moment before sending another query.'); return; }
+      lastAiCallTimestamp = now;
+
+      const submitBtn = document.getElementById('aiSubmitBtn');
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = '...'; }
+
+      if (state.geminiApiKey) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 8000);
+        try {
+          const city = CITY_PROFILES[state.cityKey] || CITY_PROFILES.delhi;
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(state.geminiApiKey)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal: controller.signal,
+            body: JSON.stringify({ contents: [{ parts: [{ text: `City: ${city.name} (AQI ${state.customAqi}, PM2.5 ${state.customPm25}). Profile: ${state.profileKey}. Question: ${cleaned}. Answer concisely in 2 sentences.` }] }] })
+          });
+          clearTimeout(timer);
+          if (res.ok) {
+            const text = (await res.json())?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) {
+              appendAiCard({ title: `Gemini 2.5 Flash · ${city.name}`, english: text, hinglish: 'Live Gemini response.', sourceMode: 'Live Gemini API' });
+              if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Ask'; }
+              return;
+            }
+          }
+        } catch (err) {
+          clearTimeout(timer);
+          showToast('Live Gemini unreachable — using Zero-Key CPCB/WHO Engine.');
+        }
+      }
+
+      appendAiCard(generateBuiltInAiResponse(cleaned));
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Ask'; }
+    }
+
+    function switchTab(tabId) {
+      state.activeTab = tabId;
+      document.querySelectorAll('.tab-view').forEach(sec => sec.classList.toggle('hidden', sec.id !== `view-${tabId}`));
+      document.querySelectorAll('.nav-tab').forEach(btn => btn.classList.toggle('nav-pill-active', btn.getAttribute('data-tab') === tabId));
+      renderAll();
+    }
+
+    function runAutoDemo() {
+      if ('speechSynthesis' in window && window.speechSynthesis.speaking) window.speechSynthesis.cancel();
+      const lbl = document.getElementById('autoDemoLabel');
+      if (autoDemoTimer) {
+        clearInterval(autoDemoTimer);
+        autoDemoTimer = null;
+        if (lbl) lbl.textContent = 'Walkthrough';
+        return;
+      }
+      const tabs = ['overview', 'routines', 'home', 'impact'];
+      let i = 0;
+      if (lbl) lbl.textContent = 'Stop';
+      switchTab(tabs[0]);
+      i = 1;
+      autoDemoTimer = setInterval(() => {
+        if (i < tabs.length) switchTab(tabs[i++]);
+        else { clearInterval(autoDemoTimer); autoDemoTimer = null; if (lbl) lbl.textContent = 'Walkthrough'; }
+      }, 2600);
+    }
+
+    function copyTextSafe(text, label) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => showToast(`Copied ${label}`)).catch(() => fallbackCopy(text, label));
+      } else { fallbackCopy(text, label); }
+    }
+
+    function fallbackCopy(text, label) {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); showToast(`Copied ${label}`); } catch (e) {}
+      document.body.removeChild(ta);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      try { localStorage.removeItem('vayu_gemini_api_key'); } catch (e) {}
+      initCharts();
+      appendAiCard(generateBuiltInAiResponse('default'));
+      renderAll();
+
+      document.querySelectorAll('.nav-tab').forEach(btn => btn.addEventListener('click', () => switchTab(btn.getAttribute('data-tab'))));
+
+      document.getElementById('citySelector').addEventListener('change', (e) => {
+        state.cityKey = e.target.value;
+        const c = CITY_PROFILES[state.cityKey] || CITY_PROFILES.delhi;
+        state.customAqi = c.aqi; state.customPm25 = c.pm25;
+        document.getElementById('customAqiSlider').value = c.aqi;
+        document.getElementById('liveDataSourceBadge').textContent = 'CPCB Nov 2026';
+        appendAiCard(generateBuiltInAiResponse('default'));
+        renderAll();
+      });
+
+      document.getElementById('profileSelector').addEventListener('change', (e) => {
+        state.profileKey = e.target.value;
+        appendAiCard(generateBuiltInAiResponse('default'));
+        renderAll();
+      });
+
+      document.getElementById('customAqiSlider').addEventListener('input', (e) => {
+        state.customAqi = sanitizeNumber(e.target.value, 35, 500, 200);
+        state.customPm25 = aqiToCpcbPm25(state.customAqi);
+        renderAll();
+      });
+
+      document.getElementById('liveCitySearchForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const input = document.getElementById('liveCityInput');
+        const btn = document.getElementById('liveCityFetchBtn');
+        const badge = document.getElementById('liveDataSourceBadge');
+        const query = (input ? input.value : '').trim().slice(0, 50);
+        if (query.length < 2) { showToast('Enter a city name (2+ letters)'); return; }
+        btn.disabled = true; btn.textContent = 'Syncing...';
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 8000);
+        try {
+          const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`, { signal: controller.signal });
+          if (!geoRes.ok) throw new Error('Geo error');
+          const loc = (await geoRes.json())?.results?.[0];
+          if (!loc) { showToast(`City "${query}" not found`); return; }
+          const aqRes = await fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${encodeURIComponent(loc.latitude)}&longitude=${encodeURIComponent(loc.longitude)}&current=pm10,pm2_5&hourly=pm2_5&forecast_days=1&timezone=auto`, { signal: controller.signal });
+          clearTimeout(timer);
+          if (!aqRes.ok) throw new Error('AQ error');
+          const aqData = await aqRes.json();
+          const pm25 = sanitizeNumber(aqData?.current?.pm2_5, 1, 999, 60);
+          const pm10 = sanitizeNumber(aqData?.current?.pm10, 1, 999, 90);
+          const aqi = pm25ToCpcbAqi(pm25);
+          const rawH = Array.isArray(aqData?.hourly?.pm2_5) ? aqData.hourly.pm2_5 : [];
+          const h8 = [];
+          for (let i = 0; i < 24; i += 3) h8.push(sanitizeNumber(rawH[i], 1, 999, pm25));
+          const displayName = [loc.name, loc.admin1 || loc.country].filter(Boolean).join(', ');
+          CITY_PROFILES.live_custom = { name: displayName, aqi, pm25: +pm25.toFixed(1), pm10: +pm10.toFixed(1), hourlyOutdoor: h8.length === 8 ? h8 : Array(8).fill(pm25) };
+          state.cityKey = 'live_custom'; state.customAqi = aqi; state.customPm25 = +pm25.toFixed(1);
+          document.getElementById('customAqiSlider').value = aqi;
+          if (badge) badge.textContent = 'Live Open-Meteo';
+          appendAiCard(generateBuiltInAiResponse('default'));
+          renderAll();
+          showToast(`Synced ${displayName}: AQI ${aqi}`);
+        } catch (err) {
+          clearTimeout(timer);
+          showToast('Offline or unreachable — using verified CPCB presets.');
+        } finally {
+          btn.disabled = false; btn.textContent = 'Sync Live';
+        }
+      });
+
+      document.getElementById('langToggleBtn').addEventListener('click', () => {
+        state.bilingual = !state.bilingual;
+        document.getElementById('langBadge').textContent = state.bilingual ? 'EN + Hinglish' : 'English';
+        document.getElementById('aiChatStream').innerHTML = '';
+        appendAiCard(generateBuiltInAiResponse('default'));
+      });
+
+      document.getElementById('themeToggleBtn').addEventListener('click', () => document.documentElement.classList.toggle('dark'));
+      document.getElementById('autoDemoBtn').addEventListener('click', runAutoDemo);
+
+      document.getElementById('voiceAdvisoryBtn').addEventListener('click', () => {
+        if (!('speechSynthesis' in window)) { showToast('Voice not supported in this browser'); return; }
+        if (window.speechSynthesis.speaking) { window.speechSynthesis.cancel(); document.getElementById('voiceBtnLabel').textContent = 'Listen'; return; }
+        const r = generateBuiltInAiResponse('default');
+        const u = new SpeechSynthesisUtterance(`${r.title}. ${r.english}`);
+        u.onend = () => { document.getElementById('voiceBtnLabel').textContent = 'Listen'; };
+        document.getElementById('voiceBtnLabel').textContent = 'Stop';
+        window.speechSynthesis.speak(u);
+      });
+
+      document.querySelectorAll('.ai-chip').forEach(chip => chip.addEventListener('click', () => appendAiCard(generateBuiltInAiResponse(chip.getAttribute('data-prompt')))));
+      document.getElementById('aiPromptForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const inp = document.getElementById('aiPromptInput');
+        if (inp && inp.value.trim()) { handleUserPrompt(inp.value.trim()); inp.value = ''; }
+      });
+
+      document.getElementById('applyAiPlanBtn').addEventListener('click', () => {
+        ROUTINE_ITEMS.forEach(r => { r.active = true; });
+        IAQ_HACKS.forEach(h => { h.active = true; });
+        state.zones.forEach(z => { z.active = true; });
+        state.purifierKey = 'cr_5filter'; state.maskKey = 'n95_sealed';
+        document.getElementById('purifierModelSelect').value = 'cr_5filter';
+        document.getElementById('maskSelect').value = 'n95_sealed';
+        renderAll();
+        showToast('Applied optimal smog protection plan');
+      });
+
+      document.getElementById('routineFilterInput').addEventListener('input', (e) => { state.routineFilter = e.target.value; renderRoutineList(); });
+      document.getElementById('resetDefaultsBtn').addEventListener('click', () => {
+        state.routineFilter = ''; document.getElementById('routineFilterInput').value = '';
+        ROUTINE_ITEMS.forEach((r, idx) => { r.active = idx < 5; });
+        renderAll(); showToast('Reset routines to defaults');
+      });
+      document.getElementById('enableAllRoutinesBtn').addEventListener('click', () => { ROUTINE_ITEMS.forEach(r => { r.active = true; }); renderAll(); });
+
+      document.getElementById('maskSelect').addEventListener('change', (e) => { state.maskKey = e.target.value; renderAll(); });
+      document.getElementById('outdoorHoursSlider').addEventListener('input', (e) => { state.outdoorHours = sanitizeNumber(e.target.value, 0.5, 8, 2.5); renderAll(); });
+      document.getElementById('purifierModelSelect').addEventListener('change', (e) => { state.purifierKey = e.target.value; renderAll(); });
+      document.getElementById('roomAreaSlider').addEventListener('input', (e) => { state.roomArea = sanitizeNumber(e.target.value, 100, 600, 220); renderAll(); });
+      document.getElementById('windowSealSelect').addEventListener('change', (e) => { state.windowSeal = e.target.value; renderAll(); });
+      document.getElementById('aiBalanceZonesBtn').addEventListener('click', () => { state.zones.forEach(z => { z.active = true; }); renderAll(); showToast('All 4 zones purified'); });
+
+      document.getElementById('baselineModeSelect').addEventListener('change', (e) => { state.baselineMode = e.target.value; renderAll(); });
+      document.getElementById('sustainableSwapSelect').addEventListener('change', (e) => { state.sustainableSwap = e.target.value; renderAll(); });
+      document.getElementById('commuteKmSlider').addEventListener('input', (e) => { state.commuteKm = sanitizeNumber(e.target.value, 4, 80, 24); renderAll(); });
+      document.getElementById('commuteDaysSlider').addEventListener('input', (e) => { state.commuteDays = sanitizeNumber(e.target.value, 1, 7, 6); renderAll(); });
+      document.getElementById('communityUnitsSlider').addEventListener('input', (e) => { state.communityUnits = sanitizeNumber(e.target.value, 10, 500, 120); renderAll(); });
+
+      document.getElementById('copyBulletinBtn').addEventListener('click', () => copyTextSafe(document.getElementById('communityBulletinBox').value, 'WhatsApp Advisory'));
+      document.getElementById('downloadSvgPosterBtn').addEventListener('click', () => {
+        const svg = document.getElementById('cleanAirPosterSvg');
+        if (!svg) return;
+        const url = URL.createObjectURL(new Blob([svg.outerHTML], { type: 'image/svg+xml' }));
+        const a = document.createElement('a'); a.href = url; a.download = `VayuAI_${state.cityKey}.svg`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+      });
+
+      document.querySelectorAll('.copy-btn').forEach(btn => btn.addEventListener('click', () => {
+        const el = document.getElementById(btn.getAttribute('data-copy-target'));
+        if (el) copyTextSafe(el.value, 'Submission Answer');
+      }));
+
+      document.getElementById('exportJsonBtn').addEventListener('click', () => {
+        const url = URL.createObjectURL(new Blob([JSON.stringify({ project: 'VayuAI Professional', state, metrics: computeMetrics() }, null, 2)], { type: 'application/json' }));
+        const a = document.createElement('a'); a.href = url; a.download = 'vayu_ai_plan.json';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+      });
+
+      document.getElementById('exportMdBtn').addEventListener('click', () => {
+        const m = computeMetrics();
+        const md = `# VayuAI Clean-Air Plan\n- AQI: ${state.customAqi}\n- Filtered Indoor PM2.5: ${m.steadyIndoorPm25} µg/m³ (-${m.netIndoorReductionPct}%)\n- Commute CO₂ Saved: ${m.annualCo2SavedKg} kg/yr (${m.swapLabel})\n`;
+        const url = URL.createObjectURL(new Blob([md], { type: 'text/markdown' }));
+        const a = document.createElement('a'); a.href = url; a.download = 'vayu_ai_plan.md';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+      });
+
+      document.getElementById('printPdfBtn').addEventListener('click', () => window.print());
+
+      const apiModal = document.getElementById('apiModal');
+      document.getElementById('settingsBtn').addEventListener('click', () => apiModal.classList.remove('hidden'));
+      document.getElementById('closeApiModalBtn').addEventListener('click', () => apiModal.classList.add('hidden'));
+      apiModal.addEventListener('click', (e) => { if (e.target === apiModal) apiModal.classList.add('hidden'); });
+      document.getElementById('saveApiKeyBtn').addEventListener('click', () => {
+        const val = document.getElementById('geminiApiKeyInput').value.trim().slice(0, 120);
+        state.geminiApiKey = val;
+        document.getElementById('apiStatusLabel').textContent = val ? 'Session Gemini Key Active' : 'Zero-Key CPCB/WHO Engine';
+        apiModal.classList.add('hidden');
+        showToast(val ? 'Session key set in memory' : 'Using Zero-Key Engine');
+      });
+      document.getElementById('clearApiKeyBtn').addEventListener('click', () => {
+        state.geminiApiKey = ''; document.getElementById('geminiApiKeyInput').value = '';
+        document.getElementById('apiStatusLabel').textContent = 'Zero-Key CPCB/WHO Engine';
+        apiModal.classList.add('hidden'); showToast('Using Zero-Key Engine');
+      });
+    });
+  </script>
+</body>
+</html>
